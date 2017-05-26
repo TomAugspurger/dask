@@ -1,6 +1,7 @@
 import sys
 from operator import add
 from itertools import product
+import warnings
 
 import pandas as pd
 import pandas.util.testing as tm
@@ -38,6 +39,7 @@ def test_apply_warns():
     ddf = dd.from_pandas(df, npartitions=2)
 
     func = lambda row: row['x'] + row['y']
+    assert warnings.filters == []
 
     with pytest.warns(UserWarning) as w:
         ddf.apply(func, axis=1)
