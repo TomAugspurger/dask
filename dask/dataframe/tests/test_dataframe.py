@@ -33,6 +33,17 @@ d = dd.DataFrame(dsk, 'x', meta, [0, 5, 9, 9])
 full = d.compute()
 
 
+def test_apply_warns():
+    df = pd.DataFrame({'x': [1, 2, 3, 4], 'y': [10, 20, 30, 40]})
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    func = lambda row: row['x'] + row['y']
+
+    with pytest.warns(UserWarning) as w:
+        ddf.apply(func, axis=1)
+    assert len(w) == 1
+
+
 def test_Dataframe():
     expected = pd.Series([2, 3, 4, 5, 6, 7, 8, 9, 10],
                          index=[0, 1, 3, 5, 6, 8, 9, 9, 9],
