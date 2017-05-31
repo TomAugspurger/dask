@@ -44,6 +44,7 @@ def test_apply_warns():
         assert warnings.filters == []
 
     with pytest.warns(UserWarning) as w:
+        warnings.resetwarnings()
         ddf.apply(func, axis=1)
     assert len(w) == 1
 
