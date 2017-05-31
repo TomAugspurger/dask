@@ -39,7 +39,9 @@ def test_apply_warns():
     ddf = dd.from_pandas(df, npartitions=2)
 
     func = lambda row: row['x'] + row['y']
-    assert warnings.filters == []
+    with warnings.catch_warnings():
+        warnings.resetwarnings()
+        assert warnings.filters == []
 
     with pytest.warns(UserWarning) as w:
         ddf.apply(func, axis=1)
