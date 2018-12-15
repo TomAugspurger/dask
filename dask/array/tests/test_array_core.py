@@ -1153,6 +1153,17 @@ def test_map_blocks_with_chunks():
     assert_eq(dz, np.ones((5, 3)) * 2)
 
 
+def test_map_blocks_expands():
+    # https://github.com/dask/dask/issues/4299
+    a = da.from_array(['a', 'b', 'c'], 3)
+    b = da.from_array(np.array([0, 1, 2, 0, 1, 2]), chunks=3)
+    result = da.map_blocks(operator.getitem, a, b, dtype=a.dtype,
+                           chunks=b.chunks)
+    expected = da.from_array(['a', 'b', 'c', 'a', 'b', 'c'],
+                             chunks=((3, 3),))
+    assert_eq(result, expected)
+
+
 def test_map_blocks_dtype_inference():
     x = np.arange(50).reshape((5, 10))
     y = np.arange(10)
