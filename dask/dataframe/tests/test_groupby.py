@@ -2419,3 +2419,22 @@ def test_groupby_sort_true_split_out():
     with pytest.raises(NotImplementedError):
         # Cannot use sort=True with split_out>1 (for now)
         M.sum(ddf.groupby("x", sort=True), split_out=2)
+
+
+def test_nunique():
+    df = pd.DataFrame(
+        {
+            "A": ["a", "a", "b", "b", "a", "a"],
+            "B": [1, 1, 1, 1, 1, 1],
+            "C": [1, 2, 3, 4, 5, 1],
+        }
+    )
+
+    ddf = dd.from_pandas(df, 2)
+    expected = df.groupby("A").B.nunique()
+    result = ddf.groupby("A").B.nunique()
+    assert_eq(result, expected)
+
+    expected = df.groupby(["A", "B"]).C.nunique()
+    result = ddf.groupby(["A", "B"]).C.nunique()
+    assert_eq(result, expected)

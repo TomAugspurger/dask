@@ -493,28 +493,20 @@ def _cov_agg(_t, levels, ddof, std=False, sort=False):
 ###############################################################
 
 
-def _nunique_df_chunk(df, *index, **kwargs):
-    levels = kwargs.pop("levels")
-    name = kwargs.pop("name")
+def _nunique_chunk(obj, *index, col):
+    # breakpoint()
+    if isinstance(index, tuple):
+        index = list(index)
+    res = obj[index + [col]].drop_duplicates()
+    return res
 
-    g = _groupby_raise_unaligned(df, by=index)
-    if len(df) > 0:
-        grouped = g[[name]].apply(M.drop_duplicates)
-        # we set the index here to force a possibly duplicate index
-        # for our reduce step
-        if isinstance(levels, list):
-            grouped.index = pd.MultiIndex.from_arrays(
-                [grouped.index.get_level_values(level=level) for level in levels]
-            )
-        else:
-            grouped.index = grouped.index.get_level_values(level=levels)
-    else:
-        # Manually create empty version, since groupby-apply for empty frame
-        # results in df with no columns
-        grouped = g[[name]].nunique()
-        grouped = grouped.astype(df.dtypes[grouped.columns].to_dict())
 
-    return grouped
+def _nunique_combine(objs):
+    return pd.concat(objs, ignore_index=True).drop_duplicates()
+
+
+def _nunique_aggregate(obj, by, name):
+    return obj.groupby(by)[name].nunique()
 
 
 def _drop_duplicates_rename(df):
@@ -523,32 +515,6 @@ def _drop_duplicates_rename(df):
     # https://github.com/pandas-dev/pandas/pull/18882
     names = [None] * df.index.nlevels
     return df.drop_duplicates().rename_axis(names, copy=False)
-
-
-def _nunique_df_combine(df, levels, sort=False):
-    result = df.groupby(level=levels, sort=sort).apply(_drop_duplicates_rename)
-
-    if isinstance(levels, list):
-        result.index = pd.MultiIndex.from_arrays(
-            [result.index.get_level_values(level=level) for level in levels]
-        )
-    else:
-        result.index = result.index.get_level_values(level=levels)
-
-    return result
-
-
-def _nunique_df_aggregate(df, levels, name, sort=False):
-    return df.groupby(level=levels, sort=sort)[name].nunique()
-
-
-def _nunique_series_chunk(df, *index, **_ignored_):
-    # convert series to data frame, then hand over to dataframe code path
-    assert is_series_like(df)
-
-    df = df.to_frame()
-    kwargs = dict(name=df.columns[0], levels=_determine_levels(index))
-    return _nunique_df_chunk(df, *index, **kwargs)
 
 
 ###############################################################
@@ -1793,29 +1759,22 @@ class SeriesGroupBy(_GroupBy):
     @derived_from(pd.core.groupby.SeriesGroupBy)
     def nunique(self, split_every=None, split_out=1):
         name = self._meta.obj.name
-        levels = _determine_levels(self.index)
-
-        if isinstance(self.obj, DataFrame):
-            chunk = _nunique_df_chunk
-
-        else:
-            chunk = _nunique_series_chunk
-
         return aca(
             [self.obj, self.index]
             if not isinstance(self.index, list)
             else [self.obj] + self.index,
-            chunk=chunk,
-            aggregate=_nunique_df_aggregate,
-            combine=_nunique_df_combine,
+            chunk=_nunique_chunk,
+            aggregate=_nunique_aggregate,
+            combine=_nunique_combine,
             token="series-groupby-nunique",
-            chunk_kwargs={"levels": levels, "name": name},
-            aggregate_kwargs={"levels": levels, "name": name},
-            combine_kwargs={"levels": levels},
+            chunk_kwargs={"col": name},
+            aggregate_kwargs={"by": self.index, "name": name},
+            combine_kwargs={"col": self.index, "name": name},
             split_every=split_every,
             split_out=split_out,
             split_out_setup=split_out_on_index,
             sort=self.sort,
+            meta=self._meta.nunique(),
         )
 
     @derived_from(pd.core.groupby.SeriesGroupBy)
