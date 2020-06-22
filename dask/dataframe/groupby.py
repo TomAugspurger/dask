@@ -23,6 +23,7 @@ from .utils import (
     insert_meta_param_description,
     raise_on_meta_error,
     is_series_like,
+    is_index_like,
     is_dataframe_like,
 )
 from ..base import tokenize
@@ -494,19 +495,37 @@ def _cov_agg(_t, levels, ddof, std=False, sort=False):
 
 
 def _nunique_chunk(obj, *index, col):
-    # breakpoint()
-    if isinstance(index, tuple):
-        index = list(index)
-    res = obj[index + [col]].drop_duplicates()
+    if len(index) and is_series_like(index[0]) or is_index_like(index[0]):
+        if is_series_like(obj):
+            obj = obj.to_frame()
+        items = {f"__dask_group_{i}__": idx for i, idx in enumerate(index)}
+        obj = obj.assign(**items)
+        names = list(items)
+    else:
+        names = list(index)
+
+    res = obj[names + [col]].drop_duplicates()
     return res
 
 
-def _nunique_combine(objs):
-    return pd.concat(objs, ignore_index=True).drop_duplicates()
+def _nunique_combine(objs, by, name):
+    # return objs.groupby(by)[name].nunique()
+    # breakpoint()
+    return pd.concat([objs], ignore_index=True).drop_duplicates()
 
 
 def _nunique_aggregate(obj, by, name):
-    return obj.groupby(by)[name].nunique()
+    # breakpoint()
+    if ((is_series_like(by) or is_index_like(by)) or (isinstance(by, (tuple, list)) and
+            len(by) and (is_series_like(by[0]) or is_index_like(by[0])))):
+        if is_series_like(by) or is_index_like(by):
+            by = {"__dask_group_0__": by.name}
+        else:
+            by = {f"__dask_group_{i}__": idx.name for i, idx in enumerate(by)}
+        res = obj.groupby(list(by))[name].nunique().rename_axis(index=by)
+    else:
+        res = obj.groupby(by)[name].nunique()
+    return res
 
 
 def _drop_duplicates_rename(df):
@@ -1759,7 +1778,7 @@ class SeriesGroupBy(_GroupBy):
     @derived_from(pd.core.groupby.SeriesGroupBy)
     def nunique(self, split_every=None, split_out=1):
         name = self._meta.obj.name
-        return aca(
+        res = aca(
             [self.obj, self.index]
             if not isinstance(self.index, list)
             else [self.obj] + self.index,
@@ -1769,13 +1788,15 @@ class SeriesGroupBy(_GroupBy):
             token="series-groupby-nunique",
             chunk_kwargs={"col": name},
             aggregate_kwargs={"by": self.index, "name": name},
-            combine_kwargs={"col": self.index, "name": name},
+            combine_kwargs={"by": self.index, "name": name},
             split_every=split_every,
             split_out=split_out,
             split_out_setup=split_out_on_index,
             sort=self.sort,
             meta=self._meta.nunique(),
         )
+        breakpoint()
+        return res
 
     @derived_from(pd.core.groupby.SeriesGroupBy)
     def aggregate(self, arg, split_every=None, split_out=1):
