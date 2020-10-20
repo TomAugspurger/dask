@@ -140,6 +140,10 @@ def getter_inline(a, b, asarray=True, lock=None):
     return getter(a, b, asarray=asarray, lock=lock)
 
 
+def getter_nohold(a, b, asarray=True, lock=None):
+    return getter(a, b, asarray=asarray, lock=lock)
+
+
 from .optimization import optimize, fuse_slice
 
 
@@ -2986,7 +2990,12 @@ def from_zarr(
     chunks = chunks if chunks is not None else z.chunks
     if name is None:
         name = "from-zarr-" + tokenize(z, component, storage_options, chunks, **kwargs)
-    return from_array(z, chunks, name=name)
+    getitem = config.get("array.zarr.hold_keys", True)
+    if getitem:
+        getitem = None
+    else:
+        getitem = getter_nohold
+    return from_array(z, chunks, name=name, getitem=getitem)
 
 
 def to_zarr(
