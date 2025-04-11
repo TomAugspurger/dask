@@ -30,6 +30,7 @@ class FromDelayed(PartitionsFiltered, BlockwiseIO):
         "verify_meta",
         "_partitions",
         "prefix",
+        "_ref",
     ]
     _defaults = {
         "meta": None,
@@ -135,6 +136,7 @@ def from_delayed(
         if len(divs) != len(dfs) + 1:  # type: ignore
             raise ValueError("divisions should be a tuple of len(dfs) + 1")
 
+    _ref = dfs
     dfs = [
         delayed(df) if not isinstance(df, Delayed) and hasattr(df, "key") else df
         for df in dfs
@@ -147,7 +149,7 @@ def from_delayed(
     from dask.dataframe.dask_expr._collection import new_collection
 
     result = FromDelayed(
-        DelayedsExpr(*dfs), make_meta(meta), divisions, verify_meta, None, prefix
+        DelayedsExpr(*dfs), make_meta(meta), divisions, verify_meta, None, prefix, _ref
     )
     if pyarrow_strings_enabled() and any(
         pd.api.types.is_object_dtype(dtype)
