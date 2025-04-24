@@ -899,7 +899,7 @@ class Set(NestedContainer):
     constructor = klass = set
 
 
-class Dict(NestedContainer):
+class Dict(NestedContainer, Mapping):
     klass = dict
 
     def __init__(
@@ -931,6 +931,18 @@ class Dict(NestedContainer):
             v = v.substitute(subs_filtered) if isinstance(v, GraphNode) else v
             new[k] = v
         return type(self)(new)
+
+    def __iter__(self):
+        yield from self.args[::2]
+
+    def __len__(self):
+        return (len(self.args) - 2) // 2
+
+    def __getitem__(self, key):
+        for k, v in batched(self.args, 2, strict=True):
+            if k == key:
+                return v
+        raise KeyError(key)
 
     @staticmethod
     def constructor(args):
