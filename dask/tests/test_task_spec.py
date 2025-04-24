@@ -1004,6 +1004,7 @@ def test_nested_containers():
         "k": Task("key-1", func, "a", "b"),
         "v": Task("key-2", func, "c", "d"),
     }
+    assert len(t) == len(dict(t)) == 2
 
     def test_as_kwargs(**kwargs):
         assert kwargs == {
