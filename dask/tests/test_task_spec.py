@@ -4,6 +4,7 @@ import itertools
 import pickle
 import sys
 from collections import namedtuple
+from collections.abc import Mapping
 
 import pytest
 
@@ -996,6 +997,21 @@ def test_nested_containers():
     )
     assert t == t2
     assert tokenize(t) == tokenize(t2)
+
+    # Can be converted to a dict, e.g. also used as **kwargs
+    assert isinstance(t, Mapping)
+    assert dict(t) == {
+        "k": Task("key-1", func, "a", "b"),
+        "v": Task("key-2", func, "c", "d"),
+    }
+
+    def test_as_kwargs(**kwargs):
+        assert kwargs == {
+            "k": Task("key-1", func, "a", "b"),
+            "v": Task("key-2", func, "c", "d"),
+        }
+
+    test_as_kwargs(**t)
 
 
 def test_block_io_fusion():
