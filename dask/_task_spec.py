@@ -915,9 +915,16 @@ class Dict(NestedContainer, Mapping):
                 elif isinstance(args[0], (list, tuple)):
                     from dask.core import flatten
 
-                    args = tuple(flatten(args[0]))
-                    if len(args) % 2 != 0:
+                    args2 = args[0]
+
+                    if len(args2) == 1 and len(args2[0]) == 2:
+                        args2 = tuple(args2[0])
+                    else:
+                        args2 = tuple(flatten(args2))
+
+                    if len(args2) % 2 != 0:
                         raise ValueError("Invalid number of arguments provided")
+                    args = args2
             else:
                 raise ValueError(
                     "Invalid number of arguments provided. "
